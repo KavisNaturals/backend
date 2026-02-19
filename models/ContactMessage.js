@@ -1,7 +1,7 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
-const User = sequelize.define('User', {
+const ContactMessage = sequelize.define('ContactMessage', {
   id: {
     type: DataTypes.UUID,
     defaultValue: DataTypes.UUIDV4,
@@ -14,23 +14,16 @@ const User = sequelize.define('User', {
   email: {
     type: DataTypes.STRING,
     allowNull: false,
-    unique: true,
-    validate: {
-      isEmail: true,
-    },
+    validate: { isEmail: true },
   },
-  password: {
-    type: DataTypes.STRING,
+  message: {
+    type: DataTypes.TEXT,
     allowNull: false,
   },
-  role: {
-    type: DataTypes.ENUM('user', 'admin'),
-    defaultValue: 'user',
-  },
-  avatar: {
-    type: DataTypes.STRING,
-    allowNull: true,
+  is_read: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
   },
 });
 
-module.exports = User;
+module.exports = ContactMessage;

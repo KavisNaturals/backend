@@ -46,3 +46,20 @@ exports.getProductReviews = async (req, res) => {
     res.status(500).json({ message: 'Error fetching reviews', error: error.message });
   }
 };
+
+// GET /api/reviews/featured - latest high-rated reviews for homepage
+exports.getFeaturedReviews = async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 6;
+    const reviews = await Review.findAll({
+      where: { rating: { [require('sequelize').Op.gte]: 4 } },
+      include: [{ model: Product, attributes: ['id', 'name', 'image_path'] }],
+      order: [['createdAt', 'DESC']],
+      limit,
+    });
+    res.json(reviews);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching featured reviews', error: error.message });
+  }
+};
+

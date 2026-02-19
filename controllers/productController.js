@@ -3,7 +3,32 @@ const { Op } = require('sequelize');
 
 exports.getAllProducts = async (req, res) => {
   try {
-    const products = await Product.findAll();
+    const { search, category, sort, featured } = req.query;
+    const where = {};
+
+    if (search) {
+      where[Op.or] = [
+        { name: { [Op.iLike]: `%${search}%` } },
+        { description: { [Op.iLike]: `%${search}%` } },
+        { category: { [Op.iLike]: `%${search}%` } },
+      ];
+    }
+
+    if (category && category !== 'All Products') {
+      where.category = category;
+    }
+
+    if (featured === 'true') {
+      where.is_featured = true;
+    }
+
+    let order = [['createdAt', 'DESC']];
+    if (sort === 'price-low') order = [['price', 'ASC']];
+    else if (sort === 'price-high') order = [['price', 'DESC']];
+    else if (sort === 'rating') order = [['rating', 'DESC']];
+    else if (sort === 'name') order = [['name', 'ASC']];
+
+    const products = await Product.findAll({ where, order });
     res.json(products);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching products', error: error.message });

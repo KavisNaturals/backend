@@ -16,12 +16,15 @@ const authRoutes = require('./routes/authRoutes');
 const productRoutes = require('./routes/productRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
-const dashboardRoutes = require('./routes/dashboardRoutes'); // Added dashboard routes import
-const userRoutes = require('./routes/userRoutes'); // Added user routes import
-
-// Routes
-
+const dashboardRoutes = require('./routes/dashboardRoutes');
+const userRoutes = require('./routes/userRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
+const bannerRoutes = require('./routes/bannerRoutes');
+const categoryRoutes = require('./routes/categoryRoutes');
+const concernRoutes = require('./routes/concernRoutes');
+const wishlistRoutes = require('./routes/wishlistRoutes');
+const contactRoutes = require('./routes/contactRoutes');
+const reviewsRoutes = require('./routes/reviewsRoutes');
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -31,9 +34,15 @@ app.use('/api/payment', paymentRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/banners', bannerRoutes);
+app.use('/api/categories', categoryRoutes);
+app.use('/api/concerns', concernRoutes);
+app.use('/api/wishlist', wishlistRoutes);
+app.use('/api/contact', contactRoutes);
+app.use('/api/reviews', reviewsRoutes);
 
 const path = require('path');
-app.use('/uploads', express.static(path.join(__dirname, '/uploads')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.get('/', (req, res) => {
   res.send('API is running...');
@@ -45,8 +54,8 @@ const startServer = async () => {
     await sequelize.authenticate();
     console.log('Database connected...');
     
-    // Sync models (disable in production or handle via migrations)
-    await sequelize.sync({ force: false }); 
+    // Sync models — alter:true adds new columns to existing tables without dropping data
+    await sequelize.sync({ alter: true }); 
     
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
@@ -57,3 +66,4 @@ const startServer = async () => {
 };
 
 startServer();
+
