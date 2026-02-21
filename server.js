@@ -13,11 +13,15 @@ app.use(cors({
   origin: [
     'http://localhost:3000',
     'https://localhost:3000',
-    'https://kavisnaturals.com',
-    'https://www.kavisnaturals.com'
+    'https://kavisnaturals.in',
+    'https://www.kavisnaturals.in',
+    'https://kavisnaturals.vercel.app'
   ],
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
