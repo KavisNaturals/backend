@@ -48,7 +48,8 @@ const upload = multer({
  * In dev:        http://localhost:5000/uploads/<filename>
  */
 const getUploadUrl = (filename) => {
-  const base = process.env.API_BASE_URL || `http://localhost:${process.env.PORT || 5000}`;
+  // default to production API endpoint if not explicitly configured
+  const base = process.env.API_BASE_URL || 'https://api.kavisnaturals.cloud';
   return `${base}/uploads/${filename}`;
 };
 
