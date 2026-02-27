@@ -62,12 +62,12 @@ app.use('/api/pages', pageContentRoutes);
 
 const path = require('path');
 const fs = require('fs');
-// Serve uploads from production path if it exists, otherwise local
-const staticUploadsDir = (() => {
-  const prod = '/var/www/kavis/uploads';
-  try { fs.accessSync(prod); return prod; } catch { return path.join(__dirname, 'uploads'); }
-})();
-app.use('/uploads', express.static(staticUploadsDir));
+// Serve uploads from the configured directory (default to production path)
+// keeping parity with uploadMiddleware.js which uses UPLOAD_DIR.
+const UPLOAD_DIR = process.env.UPLOAD_DIR || '/var/www/kavis/uploads';
+// ensure dir exists (uploadMiddleware already creates it, but repeat safety here)
+try { fs.mkdirSync(UPLOAD_DIR, { recursive: true }); } catch {};
+app.use('/uploads', express.static(UPLOAD_DIR));
 
 app.get('/', (req, res) => {
   res.send('API is running...');
