@@ -63,3 +63,28 @@ exports.getFeaturedReviews = async (req, res) => {
   }
 };
 
+// GET /api/reviews - admin: all reviews
+exports.getAllReviews = async (req, res) => {
+  try {
+    const reviews = await Review.findAll({
+      include: [{ model: Product, attributes: ['id', 'name'] }],
+      order: [['createdAt', 'DESC']],
+    });
+    res.json(reviews);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching reviews', error: error.message });
+  }
+};
+
+// DELETE /api/reviews/:id - admin: delete a review
+exports.deleteReview = async (req, res) => {
+  try {
+    const review = await Review.findByPk(req.params.id);
+    if (!review) return res.status(404).json({ message: 'Review not found' });
+    await review.destroy();
+    res.json({ message: 'Review deleted' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting review', error: error.message });
+  }
+};
+

@@ -1,6 +1,8 @@
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const dotenv = require('dotenv');
+const { Order, OrderItem, Product, User } = require('../models');
+const emailService = require('../services/emailService');
 
 dotenv.config();
 
@@ -40,5 +42,72 @@ exports.verifyPayment = async (req, res) => {
     }
   } catch (error) {
     res.status(500).json({ message: 'Error verifying payment', error: error.message });
+  }
+};
+
+/**
+ * Razorpay Webhook — called by Razorpay server for async payment events
+ * Route must use express.raw() to get raw body for signature verification
+ */
+exports.webhook = async (req, res) => {
+  try {
+    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      return res.status(500).json({ message: 'Webhook secret not configured' });
+    }
+
+    const signature = req.headers['x-razorpay-signature'];
+    const rawBody = req.body; // raw Buffer (from express.raw)
+
+    const expectedSignature = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(rawBody)
+      .digest('hex');
+
+    if (expectedSignature !== signature) {
+      return res.status(400).json({ message: 'Invalid webhook signature' });
+    }
+
+    const event = JSON.parse(rawBody.toString());
+
+    if (event.event === 'payment.captured') {
+      const { order_id: razorpay_order_id, id: razorpay_payment_id } = event.payload.payment.entity;
+
+      // Find our order by razorpay_order_id
+      const order = await Order.findOne({ where: { razorpay_order_id } });
+      if (order && order.payment_status !== 'paid') {
+        await order.update({
+          payment_status: 'paid',
+          razorpay_payment_id,
+        });
+
+        // Deduct stock for each item
+        const orderItems = await OrderItem.findAll({ where: { order_id: order.id } });
+        for (const item of orderItems) {
+          await Product.decrement('stock', { by: item.quantity, where: { id: item.product_id } });
+        }
+
+        // Send confirmation email
+        try {
+          const user = order.user_id ? await User.findByPk(order.user_id) : null;
+          if (user) {
+            const itemsData = orderItems.map(oi => ({
+              product_id: oi.product_id,
+              name: 'Product',
+              quantity: oi.quantity,
+              price: oi.price,
+            }));
+            await emailService.sendOrderConfirmation(order, user, itemsData);
+          }
+        } catch (emailErr) {
+          console.error('Webhook email error:', emailErr.message);
+        }
+      }
+    }
+
+    res.json({ received: true });
+  } catch (error) {
+    console.error('Webhook error:', error.message);
+    res.status(500).json({ message: 'Webhook processing error', error: error.message });
   }
 };

@@ -20,10 +20,13 @@ const Order = sequelize.define('Order', {
     defaultValue: 'pending',
   },
   delivery_status: {
-    type: DataTypes.ENUM('processing', 'shipped', 'delivered'),
+    type: DataTypes.ENUM('pending', 'processing', 'out_for_delivery', 'shipped', 'delivered', 'cancelled', 'returned'),
     defaultValue: 'processing',
   },
   razorpay_order_id: {
+    type: DataTypes.STRING,
+  },
+  razorpay_payment_id: {
     type: DataTypes.STRING,
   },
   shipping_address: {

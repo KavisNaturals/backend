@@ -10,6 +10,8 @@ const Concern = require('./Concern');
 const Wishlist = require('./Wishlist');
 const ContactMessage = require('./ContactMessage');
 const UserAddress = require('./UserAddress');
+const SiteSettings = require('./SiteSettings');
+const PageContent = require('./PageContent');
 
 // Associations
 User.hasMany(Order, { foreignKey: 'user_id' });
@@ -49,4 +51,6 @@ module.exports = {
   Wishlist,
   ContactMessage,
   UserAddress,
+  SiteSettings,
+  PageContent,
 };

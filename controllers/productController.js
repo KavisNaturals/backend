@@ -53,7 +53,10 @@ exports.createProduct = async (req, res) => {
       ...req.body,
       price: parseFloat(req.body.price) || 0,
       original_price: req.body.original_price ? parseFloat(req.body.original_price) : null,
-      stock: parseInt(req.body.stock) || 0
+      stock: parseInt(req.body.stock) || 0,
+      // If imageUrl was sent (full URL from /api/upload), store it in both fields
+      image_url: req.body.imageUrl || req.body.image_url || null,
+      image_path: req.body.imageUrl || req.body.image_url || req.body.image_path || null,
     };
     const product = await Product.create(productData);
     res.status(201).json(product);
@@ -72,7 +75,9 @@ exports.updateProduct = async (req, res) => {
       ...req.body,
       price: req.body.price ? parseFloat(req.body.price) : product.price,
       original_price: req.body.original_price ? parseFloat(req.body.original_price) : product.original_price,
-      stock: req.body.stock !== undefined ? parseInt(req.body.stock) : product.stock
+      stock: req.body.stock !== undefined ? parseInt(req.body.stock) : product.stock,
+      image_url: req.body.imageUrl || req.body.image_url || product.image_url,
+      image_path: req.body.imageUrl || req.body.image_url || req.body.image_path || product.image_path,
     };
     await product.update(productData);
     res.json(product);

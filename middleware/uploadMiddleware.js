@@ -2,15 +2,23 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// Use env-configured directory, fallback to local uploads/ for development
-const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, '../uploads');
+// Production: /var/www/kavis/uploads  |  Development: ./uploads
+const UPLOAD_DIR = process.env.UPLOAD_DIR || '/var/www/kavis/uploads';
+const fallbackDir = path.join(__dirname, '../uploads');
 
-// Ensure the directory exists
-fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+// Attempt production dir first; fall back to local on failure
+let resolvedUploadDir = UPLOAD_DIR;
+try {
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+} catch {
+  resolvedUploadDir = fallbackDir;
+}
+
+fs.mkdirSync(resolvedUploadDir, { recursive: true });
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, UPLOAD_DIR);
+    cb(null, resolvedUploadDir);
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
@@ -36,10 +44,11 @@ const upload = multer({
 
 /**
  * Build the public URL for an uploaded file.
- * In production uses API_BASE_URL env var; in dev falls back to /uploads/<filename>.
+ * In production: https://api.kavisnaturals.cloud/uploads/<filename>
+ * In dev:        http://localhost:5000/uploads/<filename>
  */
 const getUploadUrl = (filename) => {
-  const base = process.env.API_BASE_URL || '';
+  const base = process.env.API_BASE_URL || `http://localhost:${process.env.PORT || 5000}`;
   return `${base}/uploads/${filename}`;
 };
 

@@ -15,7 +15,9 @@ app.use(cors({
     'https://localhost:3000',
     'https://kavisnaturals.in',
     'https://www.kavisnaturals.in',
-    'https://kavisnaturals.vercel.app'
+    'https://kavisnaturals.vercel.app',
+    'https://www.kavisnaturals.cloud',
+    'https://kavisnaturals.cloud'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -38,6 +40,8 @@ const concernRoutes = require('./routes/concernRoutes');
 const wishlistRoutes = require('./routes/wishlistRoutes');
 const contactRoutes = require('./routes/contactRoutes');
 const reviewsRoutes = require('./routes/reviewsRoutes');
+const settingsRoutes = require('./routes/settingsRoutes');
+const pageContentRoutes = require('./routes/pageContentRoutes');
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -53,9 +57,17 @@ app.use('/api/concerns', concernRoutes);
 app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/reviews', reviewsRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/pages', pageContentRoutes);
 
 const path = require('path');
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+const fs = require('fs');
+// Serve uploads from production path if it exists, otherwise local
+const staticUploadsDir = (() => {
+  const prod = '/var/www/kavis/uploads';
+  try { fs.accessSync(prod); return prod; } catch { return path.join(__dirname, 'uploads'); }
+})();
+app.use('/uploads', express.static(staticUploadsDir));
 
 app.get('/', (req, res) => {
   res.send('API is running...');
@@ -67,8 +79,16 @@ const startServer = async () => {
     await sequelize.authenticate();
     console.log('Database connected...');
     
+    // Ensure enum values exist in PostgreSQL before sync (ALTER TYPE ... ADD VALUE IF NOT EXISTS)
+    const deliveryStatuses = ['pending', 'processing', 'out_for_delivery', 'shipped', 'delivered', 'cancelled', 'returned'];
+    for (const val of deliveryStatuses) {
+      try {
+        await sequelize.query(`ALTER TYPE "enum_Orders_delivery_status" ADD VALUE IF NOT EXISTS '${val}'`);
+      } catch (e) { /* enum or value may already exist */ }
+    }
+
     // Sync models — alter:true adds new columns to existing tables without dropping data
-    await sequelize.sync({ alter: true }); 
+    await sequelize.sync({ alter: true });
     
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
