@@ -75,6 +75,13 @@ const Product = sequelize.define('Product', {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
   },
+  tagline: {
+    type: DataTypes.STRING,
+  },
+  frequently_bought_together: {
+    type: DataTypes.JSON,
+    defaultValue: [],
+  },
   // SEO fields
   meta_title: {
     type: DataTypes.STRING,

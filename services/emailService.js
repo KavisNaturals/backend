@@ -74,9 +74,6 @@ exports.sendOrderConfirmation = async (order, user, items) => {
   });
 };
 
-/**
- * Send order status update email to customer
- */
 exports.sendStatusUpdate = async (order, user) => {
   if (!process.env.SMTP_USER || !process.env.SMTP_PASS) return;
 
@@ -107,6 +104,74 @@ exports.sendStatusUpdate = async (order, user) => {
             ${statusLabel}
           </div>
           <p>Track your order: <a href="${process.env.FRONTEND_URL || 'https://kavisnaturals.com'}/track-order" style="color:#003F62">Click here</a></p>
+          <p style="color:#666;font-size:12px;margin-top:32px">© 2025 Kavi's Naturals. All rights reserved.</p>
+        </div>
+      </div>
+    `,
+  });
+};
+
+/**
+ * Send password reset email
+ */
+exports.sendPasswordReset = async (user, resetToken) => {
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) return;
+
+  const resetUrl = `${process.env.FRONTEND_URL || 'https://kavisnaturals.com'}/reset-password?token=${resetToken}`;
+
+  await transporter.sendMail({
+    from: FROM,
+    to: user.email,
+    subject: `Reset Your Password – Kavi's Naturals`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#333">
+        <div style="background:#9EE94C;padding:24px;text-align:center">
+          <h1 style="margin:0;font-size:24px">Kavi's Naturals</h1>
+        </div>
+        <div style="padding:24px">
+          <h2>Reset Your Password</h2>
+          <p>Hi ${user.name || 'Customer'},</p>
+          <p>We received a request to reset the password for your account associated with <strong>${user.email}</strong>.</p>
+          <p>Click the button below to reset your password. This link is valid for <strong>1 hour</strong>.</p>
+          <div style="text-align:center;margin:32px 0">
+            <a href="${resetUrl}" style="background:#9EE94C;color:#000;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:16px">
+              Reset Password
+            </a>
+          </div>
+          <p style="font-size:13px;color:#666">If the button doesn't work, copy and paste this link into your browser:</p>
+          <p style="font-size:12px;word-break:break-all;color:#003F62">${resetUrl}</p>
+          <p style="margin-top:24px;font-size:13px;color:#666">If you did not request a password reset, please ignore this email. Your password will remain unchanged.</p>
+          <p style="color:#666;font-size:12px;margin-top:32px">© 2025 Kavi's Naturals. All rights reserved.</p>
+        </div>
+      </div>
+    `,
+  });
+};
+
+/**
+ * Send welcome email after registration
+ */
+exports.sendWelcome = async (user) => {
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) return;
+
+  await transporter.sendMail({
+    from: FROM,
+    to: user.email,
+    subject: `Welcome to Kavi's Naturals! 🌿`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#333">
+        <div style="background:#9EE94C;padding:24px;text-align:center">
+          <h1 style="margin:0;font-size:24px">Kavi's Naturals</h1>
+        </div>
+        <div style="padding:24px">
+          <h2>Welcome, ${user.name || 'Friend'}! 🎉</h2>
+          <p>Thank you for creating an account with <strong>Kavi's Naturals</strong>. We're thrilled to have you as part of our community!</p>
+          <p>Discover our 100% natural, plant-based products made with love and traditional methods.</p>
+          <div style="text-align:center;margin:32px 0">
+            <a href="${process.env.FRONTEND_URL || 'https://kavisnaturals.com'}/shop" style="background:#9EE94C;color:#000;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:16px">
+              Start Shopping
+            </a>
+          </div>
           <p style="color:#666;font-size:12px;margin-top:32px">© 2025 Kavi's Naturals. All rights reserved.</p>
         </div>
       </div>

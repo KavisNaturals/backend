@@ -3,7 +3,7 @@ const { Review, User, Product } = require('../models');
 
 exports.addReview = async (req, res) => {
   try {
-    const { rating, comment, user_name } = req.body;
+    const { rating, comment, user_name, place } = req.body;
     const { productId } = req.params;
     const userId = req.user.id;
 
@@ -14,7 +14,8 @@ exports.addReview = async (req, res) => {
       user_id: userId,
       rating,
       comment,
-      user_name: user_name || req.user.name || 'Anonymous'
+      user_name: user_name || req.user.name || 'Anonymous',
+      place: place || null,
     });
 
     // Update product rating and review count

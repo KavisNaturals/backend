@@ -8,17 +8,17 @@ async function resetAdminPassword() {
     console.log('Database connected');
 
     // New password
-    const newPassword = 'NewPassword123';
-    const hashedPassword = '$2b$10$RPn8t6pNRH.IQEEHJrH9geU0YOpgfmCYZXm30MZvs/PUACOIL.PYu';
+    const newPassword = 'Admin@123';
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    // Update admin user
+    // Update admin user by email
     const updated = await User.update(
-      { password: hashedPassword },
-      { where: { role: 'admin' } }
+      { password: hashedPassword, role: 'admin' },
+      { where: { email: 'admin@kavisnaturals.com' } }
     );
 
     console.log(`\n✅ Password reset successfully!\n`);
-    console.log(`Email: admin@kavisnaturals.cloud`);
+    console.log(`Email: admin@kavisnaturals.com`);
     console.log(`Password: ${newPassword}\n`);
     console.log(`Updated ${updated[0]} admin user(s)`);
 

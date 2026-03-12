@@ -23,7 +23,11 @@ const Review = sequelize.define('Review', {
   user_name: { // Snapshot of user name in case user is deleted/changed, or just for easier display
       type: DataTypes.STRING,
       allowNull: false
-  }
+  },
+  place: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
 });
 
 module.exports = Review;
