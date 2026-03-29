@@ -10,6 +10,8 @@ router.get('/featured', reviewController.getFeaturedReviews);
 
 // Admin:
 router.get('/', auth, admin, reviewController.getAllReviews);
+router.post('/', auth, admin, reviewController.adminCreateReview);
+router.put('/:id', auth, admin, reviewController.adminUpdateReview);
 router.delete('/:id', auth, admin, reviewController.deleteReview);
 
 module.exports = router;

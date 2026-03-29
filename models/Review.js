@@ -28,6 +28,10 @@ const Review = sequelize.define('Review', {
     type: DataTypes.STRING,
     allowNull: true,
   },
+  reviewer_image: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
 });
 
 module.exports = Review;

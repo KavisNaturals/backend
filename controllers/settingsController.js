@@ -2,6 +2,7 @@ const { SiteSettings } = require('../models');
 
 const DEFAULTS = {
   social_links: JSON.stringify({ facebook: '', instagram: '', twitter: '', youtube: '' }),
+  shipping: JSON.stringify({ cost: 60, free_threshold: 600 }),
 };
 
 // Ensure default rows exist

@@ -3,11 +3,9 @@ const { Review, User, Product } = require('../models');
 
 exports.addReview = async (req, res) => {
   try {
-    const { rating, comment, user_name, place } = req.body;
+    const { rating, comment, user_name, place, reviewer_image } = req.body;
     const { productId } = req.params;
     const userId = req.user.id;
-
-    // Check if user already reviewed (optional logic, skipping for flexibility)
 
     const review = await Review.create({
       product_id: productId,
@@ -16,6 +14,7 @@ exports.addReview = async (req, res) => {
       comment,
       user_name: user_name || req.user.name || 'Anonymous',
       place: place || null,
+      reviewer_image: reviewer_image || null,
     });
 
     // Update product rating and review count
@@ -86,6 +85,61 @@ exports.deleteReview = async (req, res) => {
     res.json({ message: 'Review deleted' });
   } catch (error) {
     res.status(500).json({ message: 'Error deleting review', error: error.message });
+  }
+};
+
+// POST /api/reviews - admin: create a review for any product
+exports.adminCreateReview = async (req, res) => {
+  try {
+    const { product_id, rating, comment, user_name, place, reviewer_image } = req.body;
+    if (!product_id || !rating || !user_name) {
+      return res.status(400).json({ message: 'product_id, rating and user_name are required' });
+    }
+    const review = await Review.create({
+      product_id,
+      user_id: req.user.id,
+      rating: Number(rating),
+      comment: comment || '',
+      user_name,
+      place: place || null,
+      reviewer_image: reviewer_image || null,
+    });
+    // Update product avg rating
+    const product = await Product.findByPk(product_id);
+    if (product) {
+      const reviews = await Review.findAll({ where: { product_id } });
+      const avgRating = reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
+      await product.update({ rating: avgRating.toFixed(1), reviews_count: reviews.length });
+    }
+    res.status(201).json(review);
+  } catch (error) {
+    res.status(500).json({ message: 'Error creating review', error: error.message });
+  }
+};
+
+// PUT /api/reviews/:id - admin: update a review
+exports.adminUpdateReview = async (req, res) => {
+  try {
+    const review = await Review.findByPk(req.params.id);
+    if (!review) return res.status(404).json({ message: 'Review not found' });
+    const { rating, comment, user_name, place, reviewer_image } = req.body;
+    await review.update({
+      ...(rating !== undefined && { rating: Number(rating) }),
+      ...(comment !== undefined && { comment }),
+      ...(user_name !== undefined && { user_name }),
+      ...(place !== undefined && { place }),
+      ...(reviewer_image !== undefined && { reviewer_image }),
+    });
+    // Update product avg rating
+    const product = await Product.findByPk(review.product_id);
+    if (product) {
+      const reviews = await Review.findAll({ where: { product_id: review.product_id } });
+      const avgRating = reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
+      await product.update({ rating: avgRating.toFixed(1), reviews_count: reviews.length });
+    }
+    res.json(review);
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating review', error: error.message });
   }
 };
 
