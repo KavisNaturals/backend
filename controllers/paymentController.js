@@ -83,27 +83,12 @@ exports.webhook = async (req, res) => {
           razorpay_payment_id,
         });
 
-        // Deduct stock for each item
+        // Build email items only — stock is now deducted when order status becomes shipped
         const orderItems = await OrderItem.findAll({ where: { order_id: order.id } });
         const itemsData = [];
 
         for (const item of orderItems) {
           const product = await Product.findByPk(item.product_id);
-
-          if (item.variant_label) {
-            if (product) {
-              const opts = Array.isArray(product.options) ? product.options : [];
-              const updatedOpts = opts.map(opt =>
-                opt.label === item.variant_label
-                  ? { ...opt, stock: Math.max(0, (Number(opt.stock) || 0) - item.quantity) }
-                  : opt
-              );
-              await product.update({ options: updatedOpts });
-            }
-          } else if (product) {
-            await Product.decrement('stock', { by: item.quantity, where: { id: item.product_id } });
-          }
-
           itemsData.push({
             product_id: item.product_id,
             name: product

@@ -29,6 +29,11 @@ const Order = sequelize.define('Order', {
   razorpay_payment_id: {
     type: DataTypes.STRING,
   },
+  stock_deducted: {
+    type: DataTypes.BOOLEAN,
+    allowNull: true,
+    defaultValue: null,
+  },
   shipping_address: {
     type: DataTypes.JSON, // Or TEXT if simpler
   },

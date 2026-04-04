@@ -22,20 +22,6 @@ async function finalizeOrder(order, items, userId) {
   for (const item of items) {
     const product = await Product.findByPk(item.product_id);
 
-    if (item.variant_label) {
-      if (product) {
-        const opts = Array.isArray(product.options) ? product.options : [];
-        const updatedOpts = opts.map(opt =>
-          opt.label === item.variant_label
-            ? { ...opt, stock: Math.max(0, (Number(opt.stock) || 0) - item.quantity) }
-            : opt
-        );
-        await product.update({ options: updatedOpts });
-      }
-    } else if (product) {
-      await Product.decrement('stock', { by: item.quantity, where: { id: item.product_id } });
-    }
-
     emailItems.push({
       name: product
         ? (item.variant_label ? `${product.name} (${item.variant_label})` : product.name)
@@ -92,6 +78,7 @@ exports.createOrder = async (req, res) => {
         razorpay_order_id: razorpay_order_id || null,
         razorpay_payment_id: razorpay_payment_id || null,
         payment_status: razorpay_payment_id ? 'paid' : 'pending',
+        stock_deducted: false,
       });
     }
 
@@ -195,6 +182,8 @@ exports.getAllOrders = async (req, res) => {
 
 const VALID_DELIVERY_STATUSES = ['pending', 'processing', 'out_for_delivery', 'shipped', 'delivered', 'cancelled', 'returned'];
 const VALID_PAYMENT_STATUSES = ['pending', 'paid', 'failed'];
+const STOCK_DEDUCT_STATUSES = ['shipped', 'out_for_delivery', 'delivered'];
+const RESTORE_STATUSES = ['cancelled', 'returned'];
 
 exports.updateOrderStatus = async (req, res) => {
   try {
@@ -225,15 +214,46 @@ exports.updateOrderStatus = async (req, res) => {
 
     // Capture previous status BEFORE updating
     const prevDeliveryStatus = order.delivery_status;
+    const stockAlreadyDeducted = order.stock_deducted === true || order.stock_deducted === null;
 
     await order.update(updateData);
 
-    // Restore stock when order is cancelled or returned (only first time)
-    const RESTORE_STATUSES = ['cancelled', 'returned'];
+    // Deduct stock when the order moves into shipping/delivery flow for the first time
+    if (
+      updateData.delivery_status &&
+      STOCK_DEDUCT_STATUSES.includes(updateData.delivery_status) &&
+      !stockAlreadyDeducted
+    ) {
+      try {
+        const orderItems = await OrderItem.findAll({ where: { order_id: order.id } });
+        for (const item of orderItems) {
+          if (item.variant_label) {
+            const product = await Product.findByPk(item.product_id);
+            if (product) {
+              const opts = Array.isArray(product.options) ? product.options : [];
+              const updatedOpts = opts.map(opt =>
+                opt.label === item.variant_label
+                  ? { ...opt, stock: Math.max(0, (Number(opt.stock) || 0) - item.quantity) }
+                  : opt
+              );
+              await product.update({ options: updatedOpts });
+            }
+          } else {
+            await Product.decrement('stock', { by: item.quantity, where: { id: item.product_id } });
+          }
+        }
+        await order.update({ stock_deducted: true });
+      } catch (stockErr) {
+        console.error('Stock deduction on shipped failed:', stockErr.message);
+      }
+    }
+
+    // Restore stock when order is cancelled or returned (only if it had been deducted)
     if (
       updateData.delivery_status &&
       RESTORE_STATUSES.includes(updateData.delivery_status) &&
-      !RESTORE_STATUSES.includes(prevDeliveryStatus)
+      !RESTORE_STATUSES.includes(prevDeliveryStatus) &&
+      stockAlreadyDeducted
     ) {
       try {
         const orderItems = await OrderItem.findAll({ where: { order_id: order.id } });
@@ -253,6 +273,7 @@ exports.updateOrderStatus = async (req, res) => {
             await Product.increment('stock', { by: item.quantity, where: { id: item.product_id } });
           }
         }
+        await order.update({ stock_deducted: false });
       } catch (stockErr) {
         console.error('Stock restoration failed:', stockErr.message);
       }
