@@ -1,65 +1,107 @@
 const { Order, OrderItem, Product, User } = require('../models');
 const emailService = require('../services/emailService');
 
+async function ensureOrderItems(order, items) {
+  const existingCount = await OrderItem.count({ where: { order_id: order.id } });
+  if (existingCount > 0) return;
+
+  for (const item of items) {
+    await OrderItem.create({
+      order_id: order.id,
+      product_id: item.product_id,
+      quantity: item.quantity,
+      price: item.price,
+      variant_label: item.variant_label || null,
+    });
+  }
+}
+
+async function finalizeOrder(order, items, userId) {
+  const emailItems = [];
+
+  for (const item of items) {
+    const product = await Product.findByPk(item.product_id);
+
+    if (item.variant_label) {
+      if (product) {
+        const opts = Array.isArray(product.options) ? product.options : [];
+        const updatedOpts = opts.map(opt =>
+          opt.label === item.variant_label
+            ? { ...opt, stock: Math.max(0, (Number(opt.stock) || 0) - item.quantity) }
+            : opt
+        );
+        await product.update({ options: updatedOpts });
+      }
+    } else if (product) {
+      await Product.decrement('stock', { by: item.quantity, where: { id: item.product_id } });
+    }
+
+    emailItems.push({
+      name: product
+        ? (item.variant_label ? `${product.name} (${item.variant_label})` : product.name)
+        : 'Product',
+      quantity: item.quantity,
+      price: item.price,
+    });
+  }
+
+  try {
+    const user = userId ? await User.findByPk(userId) : null;
+    if (user) {
+      await emailService.sendOrderConfirmation(order, user, emailItems);
+    }
+  } catch (emailErr) {
+    console.error('Order confirmation email failed:', emailErr.message);
+  }
+}
+
 exports.createOrder = async (req, res) => {
   try {
-    const { items, total_amount, shipping_address, razorpay_order_id, razorpay_payment_id } = req.body;
+    const { items = [], total_amount, shipping_address, razorpay_order_id, razorpay_payment_id } = req.body;
     const userId = req.user ? req.user.id : null;
 
-    const order = await Order.create({
-      user_id: userId,
-      total_amount,
-      shipping_address,
-      razorpay_order_id: razorpay_order_id || null,
-      razorpay_payment_id: razorpay_payment_id || null,
-      payment_status: razorpay_payment_id ? 'paid' : 'pending',
-    });
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ message: 'Order items are required' });
+    }
 
-    const emailItems = [];
-    for (const item of items) {
-      await OrderItem.create({
-        order_id: order.id,
-        product_id: item.product_id,
-        quantity: item.quantity,
-        price: item.price,
-        variant_label: item.variant_label || null,
+    if (total_amount == null) {
+      return res.status(400).json({ message: 'Total amount is required' });
+    }
+
+    let order = razorpay_order_id
+      ? await Order.findOne({ where: { razorpay_order_id } })
+      : null;
+
+    const isExistingOrder = Boolean(order);
+    const wasAlreadyPaid = order ? order.payment_status === 'paid' : false;
+    const shouldFinalizeOrder = Boolean(razorpay_payment_id || !razorpay_order_id);
+
+    if (order) {
+      await order.update({
+        user_id: order.user_id || userId,
+        total_amount,
+        shipping_address,
+        razorpay_payment_id: razorpay_payment_id || order.razorpay_payment_id || null,
+        payment_status: razorpay_payment_id ? 'paid' : order.payment_status || 'pending',
       });
-      // Deduct stock — variant-level or product-level
-      const product = await Product.findByPk(item.product_id);
-      if (item.variant_label) {
-        if (product) {
-          const opts = Array.isArray(product.options) ? product.options : [];
-          const updatedOpts = opts.map(opt =>
-            opt.label === item.variant_label
-              ? { ...opt, stock: Math.max(0, (Number(opt.stock) || 0) - item.quantity) }
-              : opt
-          );
-          await product.update({ options: updatedOpts });
-        }
-      } else {
-        await Product.decrement('stock', { by: item.quantity, where: { id: item.product_id } });
-      }
-      // Build enriched item for email
-      emailItems.push({
-        name: product
-          ? (item.variant_label ? `${product.name} (${item.variant_label})` : product.name)
-          : `Product`,
-        quantity: item.quantity,
-        price: item.price,
+    } else {
+      order = await Order.create({
+        user_id: userId,
+        total_amount,
+        shipping_address,
+        razorpay_order_id: razorpay_order_id || null,
+        razorpay_payment_id: razorpay_payment_id || null,
+        payment_status: razorpay_payment_id ? 'paid' : 'pending',
       });
     }
 
-    // Send confirmation email
-    try {
-      const user = userId ? await User.findByPk(userId) : null;
-      if (user) {
-        await emailService.sendOrderConfirmation(order, user, emailItems);
-      }
-    } catch (emailErr) {
-      console.error('Order confirmation email failed:', emailErr.message);
+    await ensureOrderItems(order, items);
+
+    if (shouldFinalizeOrder && !wasAlreadyPaid) {
+      await finalizeOrder(order, items, userId || order.user_id);
     }
 
-    res.status(201).json(order);
+    res.status(isExistingOrder ? 200 : 201).json(order);
   } catch (error) {
     res.status(500).json({ message: 'Error creating order', error: error.message });
   }

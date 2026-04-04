@@ -57,7 +57,9 @@ exports.webhook = async (req, res) => {
     }
 
     const signature = req.headers['x-razorpay-signature'];
-    const rawBody = req.body; // raw Buffer (from express.raw)
+    const rawBody = Buffer.isBuffer(req.body)
+      ? req.body
+      : Buffer.from(JSON.stringify(req.body || {}));
 
     const expectedSignature = crypto
       .createHmac('sha256', webhookSecret)
@@ -83,20 +85,39 @@ exports.webhook = async (req, res) => {
 
         // Deduct stock for each item
         const orderItems = await OrderItem.findAll({ where: { order_id: order.id } });
+        const itemsData = [];
+
         for (const item of orderItems) {
-          await Product.decrement('stock', { by: item.quantity, where: { id: item.product_id } });
+          const product = await Product.findByPk(item.product_id);
+
+          if (item.variant_label) {
+            if (product) {
+              const opts = Array.isArray(product.options) ? product.options : [];
+              const updatedOpts = opts.map(opt =>
+                opt.label === item.variant_label
+                  ? { ...opt, stock: Math.max(0, (Number(opt.stock) || 0) - item.quantity) }
+                  : opt
+              );
+              await product.update({ options: updatedOpts });
+            }
+          } else if (product) {
+            await Product.decrement('stock', { by: item.quantity, where: { id: item.product_id } });
+          }
+
+          itemsData.push({
+            product_id: item.product_id,
+            name: product
+              ? (item.variant_label ? `${product.name} (${item.variant_label})` : product.name)
+              : 'Product',
+            quantity: item.quantity,
+            price: item.price,
+          });
         }
 
         // Send confirmation email
         try {
           const user = order.user_id ? await User.findByPk(order.user_id) : null;
           if (user) {
-            const itemsData = orderItems.map(oi => ({
-              product_id: oi.product_id,
-              name: 'Product',
-              quantity: oi.quantity,
-              price: oi.price,
-            }));
             await emailService.sendOrderConfirmation(order, user, itemsData);
           }
         } catch (emailErr) {

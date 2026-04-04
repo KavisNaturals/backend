@@ -19,6 +19,9 @@ const allowedOrigins = [
   'https://api.kavisnaturals.cloud'
 ];
 
+// Razorpay webhooks require the raw request body for signature verification.
+app.use('/api/payment/webhook', express.raw({ type: 'application/json' }));
+
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   const allowed =
